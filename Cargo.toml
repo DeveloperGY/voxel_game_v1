@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 winit = "0.30.9"
+wgpu = "24.0.1"
+pollster = "0.4.0"

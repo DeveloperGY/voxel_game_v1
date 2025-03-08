@@ -30,16 +30,19 @@ impl ApplicationHandler for WindowHandler {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        // Safety: Engine should be initialized if we have a window to get events from
+        let engine = unsafe { self.engine.as_mut().unwrap_unchecked() };
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::RedrawRequested => (),
+            WindowEvent::Resized(size) => engine.resize(size.width, size.height),
+            WindowEvent::RedrawRequested => engine.update(),
             _ => (),
         };
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // # Safety
-        // Engine must be initialized at this point so this is fine
+        // Safety: Engine should be initialized at this point
         unsafe { self.engine.as_ref().unwrap_unchecked() }.request_redraw();
     }
 
