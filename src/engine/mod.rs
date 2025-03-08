@@ -1,7 +1,8 @@
 use crate::gpu::GpuContext;
-use crate::renderer::Renderer;
+use crate::renderer::{Renderable, Renderer, Scene};
 use pollster::FutureExt;
 use std::sync::Arc;
+use wgpu::RenderPass;
 use winit::window::Window;
 
 pub struct Engine {
@@ -30,6 +31,17 @@ impl Engine {
     }
 
     pub fn update(&self) {
-        self.renderer.render(&self.gpu_context);
+        // Have a basic fake scene to appease the type system for now
+        struct FakeScene;
+
+        impl Renderable for FakeScene {
+            fn draw<'a>(&'a self, _render_pass: &mut RenderPass<'a>) {
+                // Do nothing
+            }
+        }
+
+        impl Scene for FakeScene {}
+
+        self.renderer.render(&self.gpu_context, &FakeScene);
     }
 }

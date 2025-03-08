@@ -3,10 +3,17 @@ use std::sync::Arc;
 use wgpu::{
     Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, Features, Instance,
     InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PowerPreference, PresentMode,
-    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp, Surface,
-    SurfaceConfiguration, TextureUsages, TextureViewDescriptor,
+    RenderPass, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp,
+    Surface, SurfaceConfiguration, TextureUsages, TextureViewDescriptor,
 };
 use winit::window::Window;
+
+pub trait Renderable {
+    fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>);
+}
+
+/// A marker trait for the top level renderable
+pub trait Scene: Renderable {}
 
 pub struct Renderer {
     window: Arc<Window>,
@@ -90,7 +97,7 @@ impl Renderer {
         }
     }
 
-    pub fn render(&self, gpu_ctx: &GpuContext) {
+    pub fn render(&self, gpu_ctx: &GpuContext, renderable: &impl Scene) {
         let target = if let Ok(t) = self.surface.get_current_texture() {
             t
         } else {
@@ -105,7 +112,7 @@ impl Renderer {
             .create_command_encoder(&CommandEncoderDescriptor { label: None });
 
         {
-            let _pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
@@ -119,6 +126,8 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+
+            renderable.draw(&mut pass);
         }
 
         gpu_ctx.queue.submit([encoder.finish()]);

@@ -1,4 +1,4 @@
-use crate::window_handler::WindowHandler;
+use crate::window::WindowHandler;
 use winit::event_loop::{ControlFlow, EventLoop};
 
 pub fn launch() {

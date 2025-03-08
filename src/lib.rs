@@ -2,6 +2,6 @@ mod engine;
 mod gpu;
 mod launcher;
 mod renderer;
-mod window_handler;
+mod window;
 
 pub use launcher::launch;
