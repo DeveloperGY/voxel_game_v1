@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    voxel_game_v1::launch();
 }
