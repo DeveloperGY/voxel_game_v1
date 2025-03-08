@@ -4,3 +4,5 @@
 /.idea/vcs.xml
 /.idea/workspace.xml
 /Cargo.lock
+/.idea/modules.xml
+/.idea/voxel_game_v1.iml
