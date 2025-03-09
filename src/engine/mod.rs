@@ -1,24 +1,27 @@
 use crate::gpu::GpuContext;
-use crate::renderer::{Renderable, Renderer, Scene};
+use crate::render::Renderer;
+use crate::scenes::GameScene;
 use pollster::FutureExt;
 use std::sync::Arc;
-use wgpu::RenderPass;
 use winit::window::Window;
 
 pub struct Engine {
     window: Arc<Window>,
     renderer: Renderer,
     gpu_context: GpuContext,
+    scene: GameScene,
 }
 
 impl Engine {
     pub fn new(window: Window) -> Self {
         let window = Arc::new(window);
         let (renderer, gpu_context) = Renderer::new(Arc::clone(&window)).block_on();
+        let scene = GameScene::new(&gpu_context, renderer.config().format);
         Self {
             window,
             renderer,
             gpu_context,
+            scene,
         }
     }
 
@@ -31,17 +34,6 @@ impl Engine {
     }
 
     pub fn update(&self) {
-        // Have a basic fake scene to appease the type system for now
-        struct FakeScene;
-
-        impl Renderable for FakeScene {
-            fn draw<'a>(&'a self, _render_pass: &mut RenderPass<'a>) {
-                // Do nothing
-            }
-        }
-
-        impl Scene for FakeScene {}
-
-        self.renderer.render(&self.gpu_context, &FakeScene);
+        self.renderer.render(&self.gpu_context, &self.scene);
     }
 }

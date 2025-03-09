@@ -134,4 +134,8 @@ impl Renderer {
         self.window.pre_present_notify();
         target.present();
     }
+
+    pub fn config(&self) -> &SurfaceConfiguration {
+        &self.surface_config
+    }
 }

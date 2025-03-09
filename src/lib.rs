@@ -1,7 +1,9 @@
 mod engine;
 mod gpu;
 mod launcher;
-mod renderer;
+mod render;
+mod scenes;
 mod window;
+mod world;
 
 pub use launcher::launch;
