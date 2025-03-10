@@ -34,6 +34,12 @@ impl Engine {
     }
 
     pub fn update(&self) {
+        let start = std::time::Instant::now();
         self.renderer.render(&self.gpu_context, &self.scene);
+        let elapsed = start.elapsed();
+        let fps = 1.0 / elapsed.as_secs_f64();
+        let frame_time = elapsed.as_millis();
+
+        println!("FPS: {:>5}, Frame Time: {}ms", fps.trunc(), frame_time);
     }
 }

@@ -2,27 +2,23 @@ use crate::gpu::GpuContext;
 use crate::render::vertex::Vertex;
 use bytemuck::{Pod, Zeroable};
 use wgpu::{
-    BlendComponent, BlendState, BufferAddress, ColorTargetState, ColorWrites, FragmentState,
-    FrontFace, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode,
-    PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModule,
-    TextureFormat, VertexAttribute, VertexBufferLayout, VertexState, VertexStepMode,
+    BlendState, BufferAddress, ColorTargetState, ColorWrites, FragmentState, FrontFace,
+    MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode,
+    PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, TextureFormat,
+    VertexAttribute, VertexBufferLayout, VertexState, VertexStepMode,
 };
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct FakeVertex {
-    pos: [f32; 3],
+#[derive(Copy, Clone, Pod, Zeroable)]
+pub struct ChunkVertex {
+    pub pos: [f32; 3],
 }
 
-impl FakeVertex {
+impl ChunkVertex {
     const ATTRIBS: [VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
-
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self { pos: [x, y, z] }
-    }
 }
 
-impl Vertex for FakeVertex {
+impl Vertex for ChunkVertex {
     fn layout<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {
             attributes: &Self::ATTRIBS,
@@ -32,17 +28,13 @@ impl Vertex for FakeVertex {
     }
 }
 
-pub struct FakePipeline {
-    pub pipeline: RenderPipeline,
+pub struct ChunkRenderPipeline {
+    pipeline: RenderPipeline,
 }
 
-impl FakePipeline {
-    pub fn new(
-        gpu_ctx: &GpuContext,
-        shader: &ShaderModule,
-        render_target_format: TextureFormat,
-    ) -> Self {
-        let layout = gpu_ctx
+impl ChunkRenderPipeline {
+    pub fn new(gpu_ctx: &GpuContext, render_target_format: TextureFormat) -> Self {
+        let pipeline_layout = gpu_ctx
             .device
             .create_pipeline_layout(&PipelineLayoutDescriptor {
                 label: None,
@@ -50,19 +42,23 @@ impl FakePipeline {
                 push_constant_ranges: &[],
             });
 
+        let shader = gpu_ctx
+            .device
+            .create_shader_module(wgpu::include_wgsl!("chunk_render.wgsl"));
+
         let pipeline = gpu_ctx
             .device
             .create_render_pipeline(&RenderPipelineDescriptor {
                 label: None,
-                layout: Some(&layout),
+                layout: Some(&pipeline_layout),
                 vertex: VertexState {
-                    module: shader,
+                    module: &shader,
                     entry_point: None,
-                    buffers: &[FakeVertex::layout()],
+                    buffers: &[ChunkVertex::layout()],
                     compilation_options: PipelineCompilationOptions::default(),
                 },
                 fragment: Some(FragmentState {
-                    module: shader,
+                    module: &shader,
                     entry_point: None,
                     targets: &[Some(ColorTargetState {
                         format: render_target_format,
@@ -76,8 +72,8 @@ impl FakePipeline {
                     strip_index_format: None,
                     front_face: FrontFace::Ccw,
                     cull_mode: None,
-                    unclipped_depth: false,
                     polygon_mode: PolygonMode::Fill,
+                    unclipped_depth: false,
                     conservative: false,
                 },
                 multisample: MultisampleState {
@@ -85,8 +81,8 @@ impl FakePipeline {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
-                depth_stencil: None,
                 multiview: None,
+                depth_stencil: None,
                 cache: None,
             });
 

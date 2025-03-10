@@ -1,13 +1,13 @@
 use crate::gpu::GpuContext;
 use crate::render::Renderable;
+use crate::render::mesh::{CpuMesh, GpuMesh};
 use crate::render::pipelines::{FakePipeline, FakeVertex};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{Buffer, BufferUsages, IndexFormat, RenderPass, TextureFormat};
 
 pub struct Quad {
     pipeline: FakePipeline,
-    vertices: Buffer,
-    indices: Buffer,
+    mesh: GpuMesh,
 }
 
 impl Quad {
@@ -16,44 +16,32 @@ impl Quad {
             .device
             .create_shader_module(wgpu::include_wgsl!("fake_quad.wgsl"));
         let pipeline = FakePipeline::new(gpu_ctx, &shader, surface_format);
-        let (vertices, indices) = Self::buffers(gpu_ctx);
+        let mesh = Self::mesh(gpu_ctx);
 
-        Self {
-            pipeline,
-            vertices,
-            indices,
-        }
+        Self { pipeline, mesh }
     }
 
-    fn buffers(gpu_ctx: &GpuContext) -> (Buffer, Buffer) {
-        let tl = FakeVertex::new(-0.5, 0.5, 1.0);
-        let tr = FakeVertex::new(0.5, 0.5, 1.0);
-        let bl = FakeVertex::new(-0.5, -0.5, 1.0);
-        let br = FakeVertex::new(0.5, -0.5, 1.0);
-        let vertices = [tl, tr, bl, br];
-        let indices: [u16; 6] = [0, 2, 1, 2, 3, 1];
+    fn mesh(gpu_ctx: &GpuContext) -> GpuMesh {
+        let mut cpu_mesh = CpuMesh::new();
+        cpu_mesh.push_vertex(FakeVertex::new(-0.5, 0.5, 1.0));
+        cpu_mesh.push_vertex(FakeVertex::new(0.5, 0.5, 1.0));
+        cpu_mesh.push_vertex(FakeVertex::new(-0.5, -0.5, 1.0));
+        cpu_mesh.push_vertex(FakeVertex::new(0.5, -0.5, 1.0));
 
-        let vertex_buffer = gpu_ctx.device.create_buffer_init(&BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&vertices),
-            usage: BufferUsages::VERTEX,
-        });
+        cpu_mesh.push_index(0);
+        cpu_mesh.push_index(2);
+        cpu_mesh.push_index(1);
+        cpu_mesh.push_index(2);
+        cpu_mesh.push_index(3);
+        cpu_mesh.push_index(1);
 
-        let index_buffer = gpu_ctx.device.create_buffer_init(&BufferInitDescriptor {
-            label: None,
-            contents: bytemuck::cast_slice(&indices),
-            usage: BufferUsages::INDEX,
-        });
-
-        (vertex_buffer, index_buffer)
+        unsafe { cpu_mesh.try_into_gpu_mesh(gpu_ctx).unwrap_unchecked() }
     }
 }
 
 impl Renderable for Quad {
     fn draw<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline.pipeline);
-        render_pass.set_vertex_buffer(0, self.vertices.slice(..));
-        render_pass.set_index_buffer(self.indices.slice(..), IndexFormat::Uint16);
-        render_pass.draw_indexed(0..6, 0, 0..1);
+        self.mesh.draw(render_pass);
     }
 }
