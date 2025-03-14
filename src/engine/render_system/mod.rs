@@ -1,7 +1,8 @@
-use crate::engine::gpu::GpuCtx;
+use crate::engine::gpu::{Camera, CameraMovementBuffer, GpuCtx};
 use pollster::FutureExt;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 use wgpu::{
     Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, Features, Instance,
     InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PowerPreference, PresentMode,
@@ -78,16 +79,21 @@ pub struct RenderSystem {
     surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
     window: Arc<Window>,
+    camera: Camera
 }
 
 impl RenderSystem {
     pub fn new(window: Arc<Window>) -> Self {
         let (gpu_ctx, surface, surface_config) = initialize_wgpu(Arc::clone(&window)).block_on();
+        let width = surface_config.width;
+        let height = surface_config.height;
+        let camera = Camera::new(&gpu_ctx, width, height);
         Self {
             gpu_ctx: Rc::new(gpu_ctx),
             surface,
             surface_config,
             window,
+            camera
         }
     }
 
@@ -101,10 +107,17 @@ impl RenderSystem {
             self.surface_config.height = height;
             self.surface
                 .configure(&self.gpu_ctx.device, &self.surface_config);
+            self.camera.resize(width, height);
         }
     }
 
+    pub fn move_camera(&mut self, movement: CameraMovementBuffer, dt: Duration) {
+        self.camera.move_camera(movement, dt);
+    }
+
     pub fn render(&self, renderable: &impl Renderable) {
+        self.camera.update_buffer(&self.gpu_ctx);
+
         let target = match self.surface.get_current_texture() {
             Ok(target) => target,
             _ => return,
@@ -135,6 +148,7 @@ impl RenderSystem {
                 occlusion_query_set: None,
             });
 
+            pass.set_bind_group(0, self.camera.bind_group(), &[]);
             renderable.render(&mut pass);
         }
 

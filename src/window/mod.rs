@@ -1,8 +1,8 @@
 use crate::engine::Engine;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::{WindowAttributes, WindowId};
+use winit::window::{Cursor, CursorGrabMode, Fullscreen, WindowAttributes, WindowId};
 
 pub struct WindowHandler {
     engine: Option<Engine>,
@@ -16,10 +16,12 @@ impl WindowHandler {
 
 impl ApplicationHandler for WindowHandler {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window_attrs = WindowAttributes::default().with_title("Voxel Game V1");
+        let window_attrs = WindowAttributes::default().with_title("Voxel Game V1").with_fullscreen(None);
         let window = event_loop
             .create_window(window_attrs)
             .expect("Failed to create window!");
+
+        window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
 
         self.engine = Some(Engine::new(window));
     }
@@ -37,8 +39,22 @@ impl ApplicationHandler for WindowHandler {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => engine.resize(size.width, size.height),
             WindowEvent::RedrawRequested => engine.draw_frame(),
+            WindowEvent::KeyboardInput {event, ..} => engine.handle_key_input(event),
+            WindowEvent::Focused(flag) => engine.window_focus(flag),
             _ => (),
         };
+    }
+
+    fn device_event(&mut self, event_loop: &ActiveEventLoop, device_id: DeviceId, event: DeviceEvent) {
+        // Safety: Engine should be initialized if we have a window to get events from
+        let engine = unsafe { self.engine.as_mut().unwrap_unchecked() };
+
+        match event {
+            DeviceEvent::MouseMotion {delta: (dx, dy)} => {
+                engine.handle_mouse_move(dx, dy);
+            },
+            _ => ()
+        }
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {

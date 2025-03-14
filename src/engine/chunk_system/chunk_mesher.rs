@@ -16,24 +16,23 @@ impl ChunkMesher {
         let (x, z) = voxel_data.pos();
         println!("Meshing chunk ({}, {})", x, z);
         let (x, z) = (x as f32, z as f32);
-        let y = -0.1 * z;
 
         // Front face
         let normal = [0.0, 0.0, -1.0];
         let top_left = ChunkVertex {
-            pos: [0.0 + x, 1.0 + y, 0.0 + z],
+            pos: [0.0 + x, 1.0, 0.0 + z],
             normal
         };
         let bottom_left = ChunkVertex {
-            pos: [0.0 + x, 0.0 + y, 0.0 + z],
+            pos: [0.0 + x, 0.0, 0.0 + z],
             normal
         };
         let top_right = ChunkVertex {
-            pos: [1.0 + x, 1.0 + y, 0.0 + z],
+            pos: [1.0 + x, 1.0, 0.0 + z],
             normal
         };
         let bottom_right = ChunkVertex {
-            pos: [1.0 + x, 0.0 + y, 0.0 + z],
+            pos: [1.0 + x, 0.0, 0.0 + z],
             normal
         };
         vertices.push(top_left);

@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use wgpu::{BlendState, ColorTargetState, ColorWrites, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, VertexState};
+use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderStages, VertexState};
 use crate::engine::chunk_system::chunk_cache::ChunkCache;
 use crate::engine::chunk_system::chunk_generator::ChunkGenerator;
 use crate::engine::chunk_system::chunk_mesher::ChunkMesher;
@@ -76,9 +76,25 @@ impl Renderable for ChunkSystem {
 }
 
 fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
+    let camera_bind_group_layout = gpu_ctx.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None
+                },
+                count: None
+            }
+        ],
+    });
+    
     let layout = gpu_ctx.device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[],
+        bind_group_layouts: &[&camera_bind_group_layout],
         push_constant_ranges: &[]
     });
     
@@ -109,7 +125,7 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             front_face: FrontFace::Ccw,
             cull_mode: None,
             unclipped_depth: false,
-            polygon_mode: PolygonMode::Line,
+            polygon_mode: PolygonMode::Fill,
             conservative: false,
         },
         multisample: MultisampleState {
