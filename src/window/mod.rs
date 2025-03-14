@@ -36,7 +36,7 @@ impl ApplicationHandler for WindowHandler {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => engine.resize(size.width, size.height),
-            WindowEvent::RedrawRequested => engine.update(),
+            WindowEvent::RedrawRequested => engine.draw_frame(),
             _ => (),
         };
     }
