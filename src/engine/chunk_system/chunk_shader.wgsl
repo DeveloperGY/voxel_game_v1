@@ -1,5 +1,6 @@
 struct VertexInput {
-    @location(0) pos: vec3f
+    @location(0) pos: vec3f,
+    @location(1) normal: vec3f
 }
 
 @vertex
