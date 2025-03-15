@@ -21,7 +21,6 @@ impl ApplicationHandler for WindowHandler {
             .create_window(window_attrs)
             .expect("Failed to create window!");
 
-        window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
 
         self.engine = Some(Engine::new(window));
     }

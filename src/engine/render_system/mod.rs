@@ -3,12 +3,7 @@ use pollster::FutureExt;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
-use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, DeviceDescriptor, Features, Instance,
-    InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PowerPreference, PresentMode,
-    RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp, Surface,
-    SurfaceConfiguration, TextureUsages, TextureViewDescriptor,
-};
+use wgpu::{AddressMode, Backends, Color, CommandEncoderDescriptor, CompareFunction, DeviceDescriptor, Extent3d, Features, FilterMode, Instance, InstanceDescriptor, Limits, LoadOp, MemoryHints, Operations, PowerPreference, PresentMode, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, StoreOp, Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor};
 use winit::window::Window;
 
 mod renderable;
@@ -74,12 +69,49 @@ async fn initialize_wgpu(window: Arc<Window>) -> (GpuCtx, Surface<'static>, Surf
     (gpu_ctx, surface, surface_config)
 }
 
+fn create_depth_texture(gpu_ctx: &GpuCtx, width: u32, height: u32) -> (Texture, TextureView, Sampler) {
+    let size = Extent3d {
+        width: width.max(1),
+        height: height.max(1),
+        depth_or_array_layers: 1,
+    };
+
+    let desc = TextureDescriptor {
+        label: None,
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Depth32Float,
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[]
+    };
+    let texture = gpu_ctx.device.create_texture(&desc);
+    let view = texture.create_view(&TextureViewDescriptor::default());
+    let sampler = gpu_ctx.device.create_sampler(&SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Nearest,
+        compare: Some(CompareFunction::LessEqual),
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 100.0,
+        ..Default::default()
+    });
+    (texture, view, sampler)
+}
+
 pub struct RenderSystem {
     gpu_ctx: Rc<GpuCtx>,
     surface: Surface<'static>,
     surface_config: SurfaceConfiguration,
     window: Arc<Window>,
-    camera: Camera
+    camera: Camera,
+    depth_texture: Texture,
+    depth_texture_view: TextureView,
+    depth_sampler: Sampler
 }
 
 impl RenderSystem {
@@ -88,12 +120,17 @@ impl RenderSystem {
         let width = surface_config.width;
         let height = surface_config.height;
         let camera = Camera::new(&gpu_ctx, width, height);
+        let (depth_texture, depth_texture_view, depth_sampler) = create_depth_texture(&gpu_ctx, width, height);
+
         Self {
             gpu_ctx: Rc::new(gpu_ctx),
             surface,
             surface_config,
             window,
-            camera
+            camera,
+            depth_texture,
+            depth_texture_view,
+            depth_sampler
         }
     }
 
@@ -108,6 +145,10 @@ impl RenderSystem {
             self.surface
                 .configure(&self.gpu_ctx.device, &self.surface_config);
             self.camera.resize(width, height);
+            let (depth_texture, depth_texture_view, depth_sampler) = create_depth_texture(&self.gpu_ctx, width, height);
+            self.depth_texture = depth_texture;
+            self.depth_texture_view = depth_texture_view;
+            self.depth_sampler = depth_sampler;
         }
     }
 
@@ -143,7 +184,16 @@ impl RenderSystem {
                         store: StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(
+                    RenderPassDepthStencilAttachment {
+                        view: &self.depth_texture_view,
+                        depth_ops: Some(Operations {
+                            load: LoadOp::Clear(1.0),
+                            store: StoreOp::Store
+                        }),
+                        stencil_ops: None
+                    }
+                ),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });

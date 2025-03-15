@@ -21,6 +21,6 @@ fn v_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn f_main(in: VertexOutput) -> @location(0) vec4f {
-    let clamped = clamp(1.0 / in.depth, 0.0, 1.0);
+    let clamped = clamp(1.0 / abs(in.depth), 0.0, 1.0);
     return vec4f(clamped, clamped, clamped, 1.0);
 }

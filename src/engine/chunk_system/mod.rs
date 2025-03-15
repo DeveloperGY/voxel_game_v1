@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderStages, VertexState};
+use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderStages, StencilState, TextureFormat, VertexState};
 use crate::engine::chunk_system::chunk_cache::ChunkCache;
 use crate::engine::chunk_system::chunk_generator::ChunkGenerator;
 use crate::engine::chunk_system::chunk_mesher::ChunkMesher;
@@ -133,7 +133,13 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             mask: !0,
             alpha_to_coverage_enabled: false
         },
-        depth_stencil: None,
+        depth_stencil: Some(DepthStencilState {
+            format: TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default()
+        }),
         multiview: None,
         cache: None
     })
