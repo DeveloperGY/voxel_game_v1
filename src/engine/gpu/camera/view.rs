@@ -1,4 +1,4 @@
-use cgmath::Zero;
+use cgmath::{Deg, Zero};
 use std::f32::consts::PI;
 use std::time::Duration;
 use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
@@ -22,16 +22,16 @@ impl View {
 
     pub fn move_camera(&mut self, buffer: CameraMovementBuffer, dt: Duration) {
         let dt = dt.as_secs_f32();
-        let sensitivity = 5.0;
+        let sensitivity = 1.0;
 
         let (rot_yaw, rot_pitch) = buffer.rotate;
         self.yaw += Rad(rot_yaw * dt * sensitivity);
         self.pitch += Rad(rot_pitch * dt * sensitivity);
 
-        if self.pitch > Rad(PI / 2.0) {
-            self.pitch = Rad(PI / 2.0);
-        } else if self.pitch < Rad(-PI / 2.0) {
-            self.pitch = Rad((-PI / 2.0) + 0.001);
+        if self.pitch > Deg(89.0).into() {
+            self.pitch = Deg(89.0).into();
+        } else if self.pitch < Deg(-89.0).into() {
+            self.pitch = Deg(-89.0).into();
         }
 
         let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
@@ -47,7 +47,7 @@ impl View {
         let z = forward * z;
         let x = right * x;
         let y = up * y;
-        
+
         let xz = match z + x {
             zeroed if zeroed == Vector3::zero() => zeroed,
             xz => xz.normalize()

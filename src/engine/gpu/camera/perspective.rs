@@ -19,7 +19,7 @@ impl PerspectiveProjection {
     pub fn new(width: u32, height: u32) -> Self {
         Self {
             aspect: width as f32 / height as f32,
-            fov_y_deg: 90.0,
+            fov_y_deg: 60.0,
             z_near: 0.01,
             z_far: 100.0
         }

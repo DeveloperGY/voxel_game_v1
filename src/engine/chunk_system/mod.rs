@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderStages, StencilState, TextureFormat, VertexState};
+use wgpu::{BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face, FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, ShaderStages, StencilState, TextureFormat, VertexState};
 use crate::engine::chunk_system::chunk_cache::ChunkCache;
 use crate::engine::chunk_system::chunk_generator::ChunkGenerator;
 use crate::engine::chunk_system::chunk_mesher::ChunkMesher;
@@ -69,7 +69,7 @@ impl Renderable for ChunkSystem {
             let index = mesh.get_indices();
             
             pass.set_vertex_buffer(0, vertex.slice(..));
-            pass.set_index_buffer(index.slice(..), IndexFormat::Uint16);
+            pass.set_index_buffer(index.slice(..), IndexFormat::Uint32);
             pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
         }
     }
@@ -91,7 +91,7 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             }
         ],
     });
-    
+
     let layout = gpu_ctx.device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[&camera_bind_group_layout],
@@ -123,7 +123,7 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             topology: PrimitiveTopology::TriangleList,
             strip_index_format: None,
             front_face: FrontFace::Ccw,
-            cull_mode: None,
+            cull_mode: Some(Face::Back),
             unclipped_depth: false,
             polygon_mode: PolygonMode::Fill,
             conservative: false,
