@@ -125,7 +125,7 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             front_face: FrontFace::Ccw,
             cull_mode: Some(Face::Back),
             unclipped_depth: false,
-            polygon_mode: PolygonMode::Fill,
+            polygon_mode: PolygonMode::Line,
             conservative: false,
         },
         multisample: MultisampleState {

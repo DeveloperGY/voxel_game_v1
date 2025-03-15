@@ -19,17 +19,94 @@ impl ChunkMesher {
         for z in 0..16 {
             for y in 0..16 {
                 for x in 0..16 {
+                    if matches!(voxel_data.data()[z as usize][y as usize][x as usize], BlockType::Air) {
+                        continue;
+                    }
+
+                    // Ensure face needs to be generated
+
+                    // Front Face
+                    let gen_front = if z < 15 {
+                        matches!(voxel_data.data()[(z + 1) as usize][y as usize][x as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+                    // Right Face
+                    let gen_right = if x < 15 {
+                        matches!(voxel_data.data()[z as usize][y as usize][(x + 1) as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+                    // Back Face
+                    let gen_back = if z > 0 {
+                        matches!(voxel_data.data()[(z - 1) as usize][y as usize][x as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+                    // Left Face
+                    let gen_left = if x > 0 {
+                        matches!(voxel_data.data()[z as usize][y as usize][(x - 1) as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+                    // Top Face
+                    let gen_top = if y < 15 {
+                        matches!(voxel_data.data()[z as usize][(y + 1) as usize][x as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+                    // Bottom Face
+                    let gen_bottom = if y > 0 {
+                        matches!(voxel_data.data()[z as usize][(y - 1) as usize][x as usize], BlockType::Air)
+                    } else {
+                        true
+                    };
+
+                    // generate faces
                     let v_x = c_x * 16 + x;
                     let v_z = c_z * 16 + z;
 
-                    let index_x_off = x;
-                    let index_y_off = y * 16;
-                    let index_z_off = z * 16 * 16;
-                    let index_off = index_x_off + index_y_off + index_z_off;
+                    if gen_front {
+                        let v = Self::gen_front(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
 
-                    let (vertices, indices) = Self::generate_voxel(v_x, y, v_z, index_off as u32);
-                    c_vertices.extend_from_slice(&vertices);
-                    c_indicies.extend_from_slice(&indices);
+                    if gen_right {
+                        let v = Self::gen_right(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
+
+                    if gen_back {
+                        let v = Self::gen_back(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
+
+                    if gen_left {
+                        let v = Self::gen_left(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
+
+                    if gen_top {
+                        let v = Self::gen_top(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
+
+                    if gen_bottom {
+                        let v = Self::gen_bottom(v_x, y, v_z);
+                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        c_vertices.extend_from_slice(&v);
+                        c_indicies.extend_from_slice(&i);
+                    }
                 }
             }
         }
@@ -37,110 +114,98 @@ impl ChunkMesher {
         CpuMesh::new(c_vertices, c_indicies)
     }
 
-    fn generate_voxel(x: i32, y: i32, z: i32, index_offset: u32) -> (Vec<ChunkVertex>, Vec<u32>) {
+    fn gen_face_indices(starting_index: u32) -> [u32; 6] {
+        [
+            starting_index,
+            starting_index + 1,
+            starting_index + 2,
+            starting_index + 1,
+            starting_index + 3,
+            starting_index + 2
+        ]
+    }
+
+    fn gen_front(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
         let x = x as f32;
         let y = y as f32;
         let z = z as f32;
-
-        // Face normals
         let pos_z = [0.0, 0.0, 1.0];
-        let neg_z = [0.0, 0.0, -1.0];
-        let pos_y = [0.0, 1.0, 0.0];
-        let neg_y = [0.0, -1.0, 0.0];
+
+        let tl = ChunkVertex {
+            pos: [x, y + 1.0, z + 1.0],
+            normal: pos_z
+        };
+        let bl = ChunkVertex {
+            pos: [x, y, z + 1.0],
+            normal: pos_z
+        };
+        let tr = ChunkVertex {
+            pos: [x + 1.0, y + 1.0, z + 1.0],
+            normal: pos_z
+        };
+        let br = ChunkVertex {
+            pos: [x + 1.0, y, z + 1.0],
+            normal: pos_z
+        };
+        [tl, bl, tr, br]
+    }
+
+    fn gen_right(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+        let x = x as f32;
+        let y = y as f32;
+        let z = z as f32;
         let pos_x = [1.0, 0.0, 0.0];
+
+        let tl = ChunkVertex {
+            pos: [x + 1.0, y + 1.0, z + 1.0],
+            normal: pos_x
+        };
+        let bl = ChunkVertex {
+            pos: [x + 1.0, y, z + 1.0],
+            normal: pos_x
+        };
+        let tr = ChunkVertex {
+            pos: [x + 1.0, y + 1.0, z],
+            normal: pos_x
+        };
+        let br = ChunkVertex {
+            pos: [x + 1.0, y, z],
+            normal: pos_x
+        };
+        [tl, bl, tr, br]
+    }
+
+    fn gen_back(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+        let x = x as f32;
+        let y = y as f32;
+        let z = z as f32;
+        let neg_z = [0.0, 0.0, -1.0];
+
+        let tl = ChunkVertex {
+            pos: [x + 1.0, y + 1.0, z],
+            normal: neg_z
+        };
+        let bl = ChunkVertex {
+            pos: [x + 1.0, y, z],
+            normal: neg_z
+        };
+        let tr = ChunkVertex {
+            pos: [x, y + 1.0, z],
+            normal: neg_z
+        };
+        let br = ChunkVertex {
+            pos: [x, y, z],
+            normal: neg_z
+        };
+        [tl, bl, tr, br]
+    }
+
+    fn gen_left(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+        let x = x as f32;
+        let y = y as f32;
+        let z = z as f32;
         let neg_x = [-1.0, 0.0, 0.0];
 
-        let mut vertices = Vec::with_capacity(24);
-        let mut indices = Vec::with_capacity(36);
-
-        // Front Face
-        let tl = ChunkVertex {
-            pos: [x, y + 1.0, z + 1.0],
-            normal: pos_z
-        };
-        let bl = ChunkVertex {
-            pos: [x, y, z + 1.0],
-            normal: pos_z
-        };
-        let tr = ChunkVertex {
-            pos: [x + 1.0, y + 1.0, z + 1.0],
-            normal: pos_z
-        };
-        let br = ChunkVertex {
-            pos: [x + 1.0, y, z + 1.0],
-            normal: pos_z
-        };
-
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(0);
-        indices.push(1);
-        indices.push(2);
-        indices.push(1);
-        indices.push(3);
-        indices.push(2);
-
-        // Right Face
-        let tl = ChunkVertex {
-            pos: [x + 1.0, y + 1.0, z + 1.0],
-            normal: pos_x
-        };
-        let bl = ChunkVertex {
-            pos: [x + 1.0, y, z + 1.0],
-            normal: pos_x
-        };
-        let tr = ChunkVertex {
-            pos: [x + 1.0, y + 1.0, z],
-            normal: pos_x
-        };
-        let br = ChunkVertex {
-            pos: [x + 1.0, y, z],
-            normal: pos_x
-        };
-
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(4);
-        indices.push(5);
-        indices.push(6);
-        indices.push(5);
-        indices.push(7);
-        indices.push(6);
-
-        // Back Face
-        let tl = ChunkVertex {
-            pos: [x + 1.0, y + 1.0, z],
-            normal: neg_z
-        };
-        let bl = ChunkVertex {
-            pos: [x + 1.0, y, z],
-            normal: neg_z
-        };
-        let tr = ChunkVertex {
-            pos: [x, y + 1.0, z],
-            normal: neg_z
-        };
-        let br = ChunkVertex {
-            pos: [x, y, z],
-            normal: neg_z
-        };
-
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(8);
-        indices.push(9);
-        indices.push(10);
-        indices.push(9);
-        indices.push(11);
-        indices.push(10);
-
-        // Left Face
         let tl = ChunkVertex {
             pos: [x, y + 1.0, z],
             normal: neg_x
@@ -157,19 +222,15 @@ impl ChunkMesher {
             pos: [x, y, z + 1.0],
             normal: neg_x
         };
+        [tl, bl, tr, br]
+    }
 
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(12);
-        indices.push(13);
-        indices.push(14);
-        indices.push(13);
-        indices.push(15);
-        indices.push(14);
+    fn gen_top(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+        let x = x as f32;
+        let y = y as f32;
+        let z = z as f32;
+        let pos_y = [0.0, 1.0, 0.0];
 
-        // Top Face
         let tl = ChunkVertex {
             pos: [x, y + 1.0, z],
             normal: pos_y
@@ -186,19 +247,15 @@ impl ChunkMesher {
             pos: [x + 1.0, y + 1.0, z + 1.0],
             normal: pos_y
         };
+        [tl, bl, tr, br]
+    }
 
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(16);
-        indices.push(17);
-        indices.push(18);
-        indices.push(17);
-        indices.push(19);
-        indices.push(18);
+    fn gen_bottom(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+        let x = x as f32;
+        let y = y as f32;
+        let z = z as f32;
+        let neg_y = [0.0, -1.0, 0.0];
 
-        // Bottom Face
         let tl = ChunkVertex {
             pos: [x, y, z + 1.0],
             normal: neg_y
@@ -215,18 +272,6 @@ impl ChunkMesher {
             pos: [x + 1.0, y, z],
             normal: neg_y
         };
-
-        vertices.push(tl);
-        vertices.push(bl);
-        vertices.push(tr);
-        vertices.push(br);
-        indices.push(20);
-        indices.push(21);
-        indices.push(22);
-        indices.push(21);
-        indices.push(23);
-        indices.push(22);
-
-        (vertices, indices.into_iter().map(|e| e + index_offset * 24).collect())
+        [tl, bl, tr, br]
     }
 }
