@@ -1,5 +1,7 @@
 use crate::engine::chunk_system::voxel_data::{BlockType, VoxelData};
 
+mod perlin;
+
 pub struct ChunkGenerator {}
 
 impl ChunkGenerator {
@@ -18,7 +20,8 @@ impl ChunkGenerator {
         for z in 0..16 {
             for y in 0..16 {
                 for x in 0..16 {
-                    unsafe { (*ptr)[z][y][x] = BlockType::Solid };
+                    let y_max = perlin::perlin(x as i32 + 16 * chunk_x, z as i32 + 16 * chunk_y);
+                    unsafe { (*ptr)[z][y][x] = if y <= y_max as usize {BlockType::Solid} else {BlockType::Air} };
                 }
             }
         }

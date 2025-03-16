@@ -69,7 +69,7 @@ impl Renderable for ChunkSystem {
             let index = mesh.get_indices();
             
             pass.set_vertex_buffer(0, vertex.slice(..));
-            pass.set_index_buffer(index.slice(..), IndexFormat::Uint32);
+            pass.set_index_buffer(index.slice(..), IndexFormat::Uint16);
             pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
         }
     }
@@ -136,7 +136,7 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
         depth_stencil: Some(DepthStencilState {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
+            depth_compare: CompareFunction::LessEqual,
             stencil: StencilState::default(),
             bias: DepthBiasState::default()
         }),

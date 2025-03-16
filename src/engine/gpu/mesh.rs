@@ -5,11 +5,11 @@ use crate::engine::gpu::GpuCtx;
 
 pub struct CpuMesh<V: Vertex> {
     vertices: Vec<V>,
-    indices: Vec<u32>,
+    indices: Vec<u16>,
 }
 
 impl<V: Vertex> CpuMesh<V> {
-    pub fn new(vertices: Vec<V>, indices: Vec<u32>) -> Self {
+    pub fn new(vertices: Vec<V>, indices: Vec<u16>) -> Self {
         Self {
             vertices,
             indices

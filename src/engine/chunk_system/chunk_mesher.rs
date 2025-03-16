@@ -68,42 +68,42 @@ impl ChunkMesher {
 
                     if gen_front {
                         let v = Self::gen_front(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
 
                     if gen_right {
                         let v = Self::gen_right(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
 
                     if gen_back {
                         let v = Self::gen_back(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
 
                     if gen_left {
                         let v = Self::gen_left(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
 
                     if gen_top {
                         let v = Self::gen_top(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
 
                     if gen_bottom {
                         let v = Self::gen_bottom(v_x, y, v_z);
-                        let i = Self::gen_face_indices(c_vertices.len() as u32);
+                        let i = Self::gen_face_indices(c_vertices.len() as u16);
                         c_vertices.extend_from_slice(&v);
                         c_indicies.extend_from_slice(&i);
                     }
@@ -114,7 +114,7 @@ impl ChunkMesher {
         CpuMesh::new(c_vertices, c_indicies)
     }
 
-    fn gen_face_indices(starting_index: u32) -> [u32; 6] {
+    fn gen_face_indices(starting_index: u16) -> [u16; 6] {
         [
             starting_index,
             starting_index + 1,
