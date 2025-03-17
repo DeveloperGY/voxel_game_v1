@@ -7,7 +7,7 @@ pub struct CameraMovementBuffer {
     pub right: f32,
     pub up: f32,
     pub down: f32,
-    pub rotate: (f32, f32)
+    pub rotate: (f32, f32),
 }
 
 impl CameraMovementBuffer {
@@ -20,7 +20,7 @@ impl CameraMovementBuffer {
             right: 0.0,
             up: 0.0,
             down: 0.0,
-            rotate: (0.0, 0.0)
+            rotate: (0.0, 0.0),
         }
     }
 

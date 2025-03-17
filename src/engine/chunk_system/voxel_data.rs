@@ -1,8 +1,10 @@
+#[derive(Copy, Clone)]
 pub enum BlockType {
     Air,
     Solid,
 }
 
+#[derive(Clone)]
 pub struct VoxelData {
     chunk_pos: (i32, i32),
     voxels: Box<[[[BlockType; 16]; 16]; 16]>,
@@ -16,7 +18,7 @@ impl VoxelData {
     pub fn data(&self) -> &[[[BlockType; 16]; 16]; 16] {
         &self.voxels
     }
-    
+
     pub fn pos(&self) -> (i32, i32) {
         self.chunk_pos
     }

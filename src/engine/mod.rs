@@ -2,35 +2,41 @@ mod chunk_system;
 mod gpu;
 mod input_system;
 mod render_system;
+pub mod utils;
 
-use crate::engine::chunk_system::ChunkSystem;
+use crate::engine::chunk_system::{ChunkSystem, ThreadedChunkLoader};
+use crate::engine::input_system::InputSystem;
 use crate::engine::render_system::RenderSystem;
 use std::sync::Arc;
 use std::time::Instant;
-use winit::event::{KeyEvent, WindowEvent};
+use winit::event::KeyEvent;
 use winit::window::{CursorGrabMode, Window};
-use crate::engine::input_system::InputSystem;
 
 pub struct Engine {
     window: Arc<Window>,
     render_system: RenderSystem,
-    chunk_system: ChunkSystem,
+    chunk_system: ChunkSystem<ThreadedChunkLoader>,
     input_system: InputSystem,
-    now: Instant
+    now: Instant,
 }
 
 impl Engine {
     pub fn new(window: Window) -> Self {
         let window = Arc::new(window);
+
         let render_system = RenderSystem::new(Arc::clone(&window));
-        let chunk_system = ChunkSystem::new(render_system.get_gpu_ctx());
+
+        let chunk_loader = ThreadedChunkLoader::new(render_system.get_gpu_ctx());
+        let chunk_system = ChunkSystem::new(render_system.get_gpu_ctx(), chunk_loader);
+
         let input_system = InputSystem::new();
+
         Self {
             window,
             render_system,
             chunk_system,
             input_system,
-            now: Instant::now()
+            now: Instant::now(),
         }
     }
 
@@ -55,7 +61,9 @@ impl Engine {
         if !flag {
             self.window.set_cursor_grab(CursorGrabMode::None).unwrap();
         } else {
-            self.window.set_cursor_grab(CursorGrabMode::Confined).unwrap();
+            self.window
+                .set_cursor_grab(CursorGrabMode::Confined)
+                .unwrap();
         }
     }
 
@@ -65,9 +73,14 @@ impl Engine {
 
         let movement = self.input_system.get_movement();
         self.render_system.move_camera(movement, dt);
+        self.chunk_system.handle_chunk_jobs();
         self.render_system.render(&self.chunk_system);
 
         let fps = 1.0 / dt.as_secs_f64();
-        println!("FPS: {}, Render Frametime: {}ms", fps.trunc(), dt.as_millis());
+        println!(
+            "FPS: {}, Render Frametime: {}ms",
+            fps.trunc(),
+            dt.as_millis()
+        );
     }
 }

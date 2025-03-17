@@ -1,9 +1,9 @@
+use crate::engine::gpu::camera::CameraMovementBuffer;
+use cgmath::num_traits::FloatConst;
+use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
 use cgmath::{Deg, Zero};
 use std::f32::consts::PI;
 use std::time::Duration;
-use cgmath::{Angle, InnerSpace, Matrix4, Point3, Rad, Vector3};
-use cgmath::num_traits::FloatConst;
-use crate::engine::gpu::camera::CameraMovementBuffer;
 
 pub struct View {
     pos: Point3<f32>,
@@ -16,7 +16,7 @@ impl View {
         Self {
             pos: Point3::new(0.0, 0.0, 0.0),
             pitch: Rad(0.0),
-            yaw: Rad(f32::PI() / 2.0)
+            yaw: Rad(f32::PI() / 2.0),
         }
     }
 
@@ -50,7 +50,7 @@ impl View {
 
         let xz = match z + x {
             zeroed if zeroed == Vector3::zero() => zeroed,
-            xz => xz.normalize()
+            xz => xz.normalize(),
         };
 
         self.pos += buffer.speed * (xz + y) * dt;
@@ -60,11 +60,10 @@ impl View {
         let (pitch_sin, pitch_cos) = self.pitch.sin_cos();
         let (yaw_sin, yaw_cos) = self.yaw.sin_cos();
 
-        Matrix4::look_to_rh(self.pos, Vector3::new(
-            pitch_cos * yaw_cos,
-            pitch_sin,
-            pitch_cos * yaw_sin
-        ),
-        Vector3::unit_y())
+        Matrix4::look_to_rh(
+            self.pos,
+            Vector3::new(pitch_cos * yaw_cos, pitch_sin, pitch_cos * yaw_sin),
+            Vector3::unit_y(),
+        )
     }
 }

@@ -16,11 +16,12 @@ impl WindowHandler {
 
 impl ApplicationHandler for WindowHandler {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window_attrs = WindowAttributes::default().with_title("Voxel Game V1").with_fullscreen(None);
+        let window_attrs = WindowAttributes::default()
+            .with_title("Voxel Game V1")
+            .with_fullscreen(None);
         let window = event_loop
             .create_window(window_attrs)
             .expect("Failed to create window!");
-
 
         self.engine = Some(Engine::new(window));
     }
@@ -38,21 +39,26 @@ impl ApplicationHandler for WindowHandler {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => engine.resize(size.width, size.height),
             WindowEvent::RedrawRequested => engine.draw_frame(),
-            WindowEvent::KeyboardInput {event, ..} => engine.handle_key_input(event),
+            WindowEvent::KeyboardInput { event, .. } => engine.handle_key_input(event),
             WindowEvent::Focused(flag) => engine.window_focus(flag),
             _ => (),
         };
     }
 
-    fn device_event(&mut self, event_loop: &ActiveEventLoop, device_id: DeviceId, event: DeviceEvent) {
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
         // Safety: Engine should be initialized if we have a window to get events from
         let engine = unsafe { self.engine.as_mut().unwrap_unchecked() };
 
         match event {
-            DeviceEvent::MouseMotion {delta: (dx, dy)} => {
+            DeviceEvent::MouseMotion { delta: (dx, dy) } => {
                 engine.handle_mouse_move(dx, dy);
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 

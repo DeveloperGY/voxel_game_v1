@@ -1,32 +1,34 @@
+use crate::engine::gpu::CameraMovementBuffer;
 use std::collections::HashMap;
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
-use crate::engine::gpu::CameraMovementBuffer;
 
 pub struct InputSystem {
     camera_movement_buffer: CameraMovementBuffer,
-    states: HashMap<KeyCode, bool>
+    states: HashMap<KeyCode, bool>,
 }
 
 impl InputSystem {
     pub fn new() -> Self {
         Self {
             camera_movement_buffer: CameraMovementBuffer::new(),
-            states: HashMap::new()
+            states: HashMap::new(),
         }
     }
 
     pub fn handle_key_event(&mut self, event: KeyEvent) {
         match event {
-            KeyEvent {physical_key, state, ..} => {
-                match physical_key {
-                    PhysicalKey::Code(code) => {
-                        self.states.insert(code, state.is_pressed());
-                    }
-                    _ => ()
+            KeyEvent {
+                physical_key,
+                state,
+                ..
+            } => match physical_key {
+                PhysicalKey::Code(code) => {
+                    self.states.insert(code, state.is_pressed());
                 }
-            }
-            _ => ()
+                _ => (),
+            },
+            _ => (),
         };
     }
 
