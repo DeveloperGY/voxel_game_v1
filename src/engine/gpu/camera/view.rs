@@ -14,7 +14,7 @@ pub struct View {
 impl View {
     pub fn new() -> Self {
         Self {
-            pos: Point3::new(0.0, 0.0, 0.0),
+            pos: Point3::new(0.0, 260.0, 0.0),
             pitch: Rad(0.0),
             yaw: Rad(f32::PI() / 2.0),
         }

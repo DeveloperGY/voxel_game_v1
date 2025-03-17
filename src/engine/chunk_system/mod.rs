@@ -12,13 +12,12 @@ use wgpu::{
     VertexState,
 };
 
-
 pub use chunk_loader::ChunkLoader;
 pub use threaded_chunk_loader::ThreadedChunkLoader;
 
 mod chunk_loader;
-mod threaded_chunk_loader;
 mod chunk_vertex;
+mod threaded_chunk_loader;
 mod voxel_data;
 
 pub struct ChunkSystem<L: ChunkLoader> {
@@ -35,7 +34,7 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 
         let mut system = Self {
             chunk_loading_center: (0, 0),
-            chunk_loading_radius: 16,
+            chunk_loading_radius: 32,
 
             loader,
             chunk_render_pipeline,

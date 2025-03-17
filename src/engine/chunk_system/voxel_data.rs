@@ -7,15 +7,15 @@ pub enum BlockType {
 #[derive(Clone)]
 pub struct VoxelData {
     chunk_pos: (i32, i32),
-    voxels: Box<[[[BlockType; 16]; 16]; 16]>,
+    voxels: Box<[[[BlockType; 16]; 256]; 16]>,
 }
 
 impl VoxelData {
-    pub fn new(voxels: Box<[[[BlockType; 16]; 16]; 16]>, chunk_pos: (i32, i32)) -> Self {
+    pub fn new(voxels: Box<[[[BlockType; 16]; 256]; 16]>, chunk_pos: (i32, i32)) -> Self {
         Self { voxels, chunk_pos }
     }
 
-    pub fn data(&self) -> &[[[BlockType; 16]; 16]; 16] {
+    pub fn data(&self) -> &[[[BlockType; 16]; 256]; 16] {
         &self.voxels
     }
 

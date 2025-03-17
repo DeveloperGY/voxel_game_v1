@@ -1,27 +1,27 @@
 use crate::engine::chunk_system::chunk_loader::ChunkLoader;
+use crate::engine::chunk_system::chunk_vertex::ChunkVertex;
 use crate::engine::chunk_system::voxel_data::{BlockType, VoxelData};
 use crate::engine::gpu::{CpuMesh, GpuCtx, GpuMesh};
 use crate::engine::utils::ThreadPool;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZero;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
-use crate::engine::chunk_system::chunk_vertex::ChunkVertex;
 
 pub struct ThreadedChunkLoader {
     thread_pool: Option<ThreadPool>,
     voxels: HashMap<(i32, i32), VoxelData>,
     meshes: HashMap<(i32, i32), GpuMesh>,
+    mesh_priorities: HashMap<(i32, i32), u8>,
     voxels_to_load: HashSet<(i32, i32)>,
     meshes_to_load: HashSet<(i32, i32)>,
 
     voxel_job_tx: Sender<VoxelData>,
     voxel_job_recv: Receiver<VoxelData>,
-    mesh_job_tx: Sender<((i32, i32), GpuMesh)>,
-    mesh_job_recv: Receiver<((i32, i32), GpuMesh)>,
+    mesh_job_tx: Sender<((i32, i32), GpuMesh, u8)>,
+    mesh_job_recv: Receiver<((i32, i32), GpuMesh, u8)>,
 
-    gpu_ctx: Arc<GpuCtx>
+    gpu_ctx: Arc<GpuCtx>,
 }
 
 impl ThreadedChunkLoader {
@@ -39,13 +39,14 @@ impl ThreadedChunkLoader {
             thread_pool,
             voxels: HashMap::new(),
             meshes: HashMap::new(),
+            mesh_priorities: HashMap::new(),
             voxels_to_load: HashSet::new(),
             meshes_to_load: HashSet::new(),
             voxel_job_tx,
             voxel_job_recv,
             mesh_job_tx,
             mesh_job_recv,
-            gpu_ctx
+            gpu_ctx,
         }
     }
 }
@@ -64,7 +65,10 @@ impl ChunkLoader for ThreadedChunkLoader {
         let pool = self.thread_pool.as_ref().unwrap();
 
         // Queue voxel generation
-        for pos in &self.voxels_to_load {
+        const QUEUE_SIZE: usize = 4;
+        let mut loaded_voxels = Vec::with_capacity(QUEUE_SIZE);
+
+        for pos in self.voxels_to_load.iter().take(QUEUE_SIZE) {
             if !self.voxels.contains_key(pos) {
                 // queue voxel gen
                 let pos = *pos;
@@ -75,25 +79,37 @@ impl ChunkLoader for ThreadedChunkLoader {
                     let _ = rx.send(voxels);
                 })
             }
+
+            loaded_voxels.push(*pos);
         }
 
-        self.voxels_to_load.clear();
+        for pos in loaded_voxels {
+            self.voxels_to_load.remove(&pos);
+        };
 
         // Receive voxel data
         while let Ok(voxels) = self.voxel_job_recv.try_recv() {
             let (c_x, c_z) = voxels.pos();
+            self.voxels.insert(voxels.pos(), voxels);
+
             // doesnt work due to race condition
             self.meshes_to_load.insert((c_x, c_z));
-            self.meshes_to_load.insert((c_x + 1, c_z));
-            self.meshes_to_load.insert((c_x - 1, c_z));
-            self.meshes_to_load.insert((c_x, c_z + 1));
-            self.meshes_to_load.insert((c_x, c_z - 1));
-            self.voxels.insert(voxels.pos(), voxels);
+
+            let adj_chunks = [
+                (c_x + 1, c_z),
+                (c_x - 1, c_z),
+                (c_x, c_z + 1),
+                (c_x, c_z - 1),
+            ];
+
+            for pos in adj_chunks {
+                self.meshes_to_load.insert(pos);
+            }
         }
 
         // Queue mesh generation
         for pos in &self.meshes_to_load {
-            if !self.meshes.contains_key(pos) && self.voxels.contains_key(pos) {
+            if self.voxels.contains_key(pos) {
                 // queue voxel gen
                 let local = self.voxels.get(pos).unwrap().clone();
                 let pos_x = self.voxels.get(&(pos.0 + 1, pos.1)).cloned();
@@ -119,11 +135,14 @@ impl ChunkLoader for ThreadedChunkLoader {
             }
         }
 
-        self.voxels_to_load.clear();
+        self.meshes_to_load.clear();
 
         // Receive mesh data
-        while let Ok((pos, mesh)) = self.mesh_job_recv.try_recv() {
-            self.meshes.insert(pos, mesh);
+        while let Ok((pos, mesh, priority)) = self.mesh_job_recv.try_recv() {
+            if self.mesh_priorities.get(&pos).map(|prev| *prev <= priority).unwrap_or(true) {
+                self.mesh_priorities.insert(pos, priority);
+                self.meshes.insert(pos, mesh);
+            }
         }
     }
 
@@ -141,15 +160,13 @@ struct MeshGenInput {
 }
 
 fn generate_voxels((c_x, c_z): (i32, i32)) -> VoxelData {
-    println!("Generating chunk ({}, {})", c_x, c_z);
-
     // Generate chunk on heap to avoid stack overflow
-    let mut uninit_chunk = Box::<[[[BlockType; 16]; 16]; 16]>::new_uninit();
+    let mut uninit_chunk = Box::<[[[BlockType; 16]; 256]; 16]>::new_uninit();
 
     let ptr = uninit_chunk.as_mut_ptr();
 
     for z in 0..16 {
-        for y in 0..16 {
+        for y in 0..256 {
             for x in 0..16 {
                 let v_x = x as i32 + 16 * c_x;
                 let v_z = z as i32 + 16 * c_z;
@@ -157,7 +174,7 @@ fn generate_voxels((c_x, c_z): (i32, i32)) -> VoxelData {
                 let math_x = v_x as f32 / 16.0;
                 let math_z = v_z as f32 / 16.0;
 
-                let y_max = ((math_x.sin() * math_z.sin() + 1.0) * 8.0).trunc() as i32;
+                let y_max = 240+ ((math_x.sin() * math_z.sin() + 1.0) * 8.0).trunc() as i32;
 
                 unsafe {
                     (*ptr)[z][y][x] = if y <= y_max as usize {
@@ -182,16 +199,15 @@ fn generate_mesh(
         pos_z,
         neg_z,
     }: MeshGenInput,
-    gpu_ctx: Arc<GpuCtx>
-) -> ((i32, i32), GpuMesh) {
+    gpu_ctx: Arc<GpuCtx>,
+) -> ((i32, i32), GpuMesh, u8) {
     let mut c_vertices = vec![];
     let mut c_indicies = vec![];
 
     let (c_x, c_z) = local.pos();
-    println!("Meshing chunk ({}, {})", c_x, c_z);
 
     for z in 0..16 {
-        for y in 0..16 {
+        for y in 0..256 {
             for x in 0..16 {
                 if matches!(
                     local.data()[z as usize][y as usize][x as usize],
@@ -201,6 +217,7 @@ fn generate_mesh(
                 }
 
                 // Ensure face needs to be generated
+                const SHOULD_GENERATE_IF_ADJACENT_CHUNK_IS_UNKNOWN: bool = true;
 
                 // Front Face
                 let gen_front = match (z, pos_z.as_ref()) {
@@ -208,11 +225,10 @@ fn generate_mesh(
                         local.data()[(z + 1) as usize][y as usize][x as usize],
                         BlockType::Air
                     ),
-                    (15, Some(pos_z)) => matches!(
-                        pos_z.data()[0][y as usize][x as usize],
-                        BlockType::Air
-                    ),
-                    (15, None) => true,
+                    (15, Some(pos_z)) => {
+                        matches!(pos_z.data()[0][y as usize][x as usize], BlockType::Air)
+                    }
+                    (15, None) => SHOULD_GENERATE_IF_ADJACENT_CHUNK_IS_UNKNOWN,
                     _ => unreachable!(),
                 };
 
@@ -222,11 +238,10 @@ fn generate_mesh(
                         local.data()[z as usize][y as usize][(x + 1) as usize],
                         BlockType::Air
                     ),
-                    (15, Some(pos_x)) => matches!(
-                        pos_x.data()[z as usize][y as usize][0],
-                        BlockType::Air
-                    ),
-                    (15, None) => true,
+                    (15, Some(pos_x)) => {
+                        matches!(pos_x.data()[z as usize][y as usize][0], BlockType::Air)
+                    }
+                    (15, None) => SHOULD_GENERATE_IF_ADJACENT_CHUNK_IS_UNKNOWN,
                     _ => unreachable!(),
                 };
 
@@ -236,11 +251,10 @@ fn generate_mesh(
                         local.data()[(z - 1) as usize][y as usize][x as usize],
                         BlockType::Air
                     ),
-                    (0, Some(neg_z)) => matches!(
-                        neg_z.data()[15][y as usize][x as usize],
-                        BlockType::Air
-                    ),
-                    (0, None) => true,
+                    (0, Some(neg_z)) => {
+                        matches!(neg_z.data()[15][y as usize][x as usize], BlockType::Air)
+                    }
+                    (0, None) => SHOULD_GENERATE_IF_ADJACENT_CHUNK_IS_UNKNOWN,
                     _ => unreachable!(),
                 };
 
@@ -250,16 +264,15 @@ fn generate_mesh(
                         local.data()[z as usize][y as usize][(x - 1) as usize],
                         BlockType::Air
                     ),
-                    (0, Some(neg_x)) => matches!(
-                        neg_x.data()[z as usize][y as usize][15],
-                        BlockType::Air
-                    ),
-                    (0, None) => true,
+                    (0, Some(neg_x)) => {
+                        matches!(neg_x.data()[z as usize][y as usize][15], BlockType::Air)
+                    }
+                    (0, None) => SHOULD_GENERATE_IF_ADJACENT_CHUNK_IS_UNKNOWN,
                     _ => unreachable!(),
                 };
 
                 // Top Face
-                let gen_top = if y < 15 {
+                let gen_top = if y < 255 {
                     matches!(
                         local.data()[z as usize][(y + 1) as usize][x as usize],
                         BlockType::Air
@@ -326,7 +339,18 @@ fn generate_mesh(
         }
     }
 
-    ((c_x, c_z), CpuMesh::new(c_vertices, c_indicies).to_gpu_mesh(&gpu_ctx).unwrap())
+    let priority = pos_x.map(|_| 1).unwrap_or(0)
+        + neg_x.map(|_| 1).unwrap_or(0)
+        + pos_z.map(|_| 1).unwrap_or(0)
+        + neg_z.map(|_| 1).unwrap_or(0);
+
+    (
+        (c_x, c_z),
+        CpuMesh::new(c_vertices, c_indicies)
+            .to_gpu_mesh(&gpu_ctx)
+            .unwrap(),
+        priority,
+    )
 }
 
 fn gen_face_indices(starting_index: u16) -> [u16; 6] {
