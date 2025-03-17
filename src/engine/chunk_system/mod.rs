@@ -34,7 +34,7 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 
         let mut system = Self {
             chunk_loading_center: (0, 0),
-            chunk_loading_radius: 32,
+            chunk_loading_radius: 16,
 
             loader,
             chunk_render_pipeline,
@@ -75,7 +75,7 @@ impl<L: ChunkLoader> Renderable for ChunkSystem<L> {
             let index = mesh.get_indices();
 
             pass.set_vertex_buffer(0, vertex.slice(..));
-            pass.set_index_buffer(index.slice(..), IndexFormat::Uint16);
+            pass.set_index_buffer(index.slice(..), IndexFormat::Uint32);
             pass.draw_indexed(0..mesh.get_index_count(), 0, 0..1);
         }
     }

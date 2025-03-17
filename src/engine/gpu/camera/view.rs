@@ -22,7 +22,7 @@ impl View {
 
     pub fn move_camera(&mut self, buffer: CameraMovementBuffer, dt: Duration) {
         let dt = dt.as_secs_f32();
-        let sensitivity = 1.0;
+        let sensitivity = 0.1;
 
         let (rot_yaw, rot_pitch) = buffer.rotate;
         self.yaw += Rad(rot_yaw * dt * sensitivity);

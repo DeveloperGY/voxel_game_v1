@@ -296,42 +296,42 @@ fn generate_mesh(
 
                 if gen_front {
                     let v = gen_front_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_right {
                     let v = gen_right_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_back {
                     let v = gen_back_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_left {
                     let v = gen_left_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_top {
                     let v = gen_top_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_bottom {
                     let v = gen_bottom_face(v_x, y, v_z);
-                    let i = gen_face_indices(c_vertices.len() as u16);
+                    let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
@@ -353,7 +353,7 @@ fn generate_mesh(
     )
 }
 
-fn gen_face_indices(starting_index: u16) -> [u16; 6] {
+fn gen_face_indices(starting_index: u32) -> [u32; 6] {
     [
         starting_index,
         starting_index + 1,

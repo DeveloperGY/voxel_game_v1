@@ -8,7 +8,7 @@ use crate::engine::chunk_system::{ChunkSystem, ThreadedChunkLoader};
 use crate::engine::input_system::InputSystem;
 use crate::engine::render_system::RenderSystem;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use winit::event::KeyEvent;
 use winit::window::{CursorGrabMode, Window};
 
@@ -17,7 +17,8 @@ pub struct Engine {
     render_system: RenderSystem,
     chunk_system: ChunkSystem<ThreadedChunkLoader>,
     input_system: InputSystem,
-    now: Instant,
+    prev_now: Instant,
+    accumulated_dt: Duration
 }
 
 impl Engine {
@@ -36,7 +37,8 @@ impl Engine {
             render_system,
             chunk_system,
             input_system,
-            now: Instant::now(),
+            prev_now: Instant::now(),
+            accumulated_dt: Duration::ZERO
         }
     }
 
@@ -67,15 +69,26 @@ impl Engine {
         }
     }
 
-    pub fn draw_frame(&mut self) {
-        let dt = self.now.elapsed();
-        self.now = Instant::now();
+    pub fn run_frame(&mut self) {
+        // Calculate delta time
+        let now = Instant::now();
+        let dt = now.duration_since(self.prev_now);
+        self.prev_now = Instant::now();
+        self.accumulated_dt += dt;
 
-        let movement = self.input_system.get_movement();
-        self.render_system.move_camera(movement, dt);
+        // Run fixed time step
+        let fixed_time_step = Duration::from_secs_f32(1.0 / 60.0);
+        while self.accumulated_dt >= fixed_time_step {
+            let movement = self.input_system.get_movement();
+            self.render_system.move_camera(movement, fixed_time_step);
+            self.accumulated_dt -= fixed_time_step;
+        }
+
+        // Run frame step
         self.chunk_system.handle_chunk_jobs();
         self.render_system.render(&self.chunk_system);
 
+        // print fps
         let fps = 1.0 / dt.as_secs_f64();
         println!(
             "FPS: {}, Render Frametime: {}ms",

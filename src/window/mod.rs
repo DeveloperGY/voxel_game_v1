@@ -38,7 +38,7 @@ impl ApplicationHandler for WindowHandler {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => engine.resize(size.width, size.height),
-            WindowEvent::RedrawRequested => engine.draw_frame(),
+            WindowEvent::RedrawRequested => engine.run_frame(),
             WindowEvent::KeyboardInput { event, .. } => engine.handle_key_input(event),
             WindowEvent::Focused(flag) => engine.window_focus(flag),
             _ => (),

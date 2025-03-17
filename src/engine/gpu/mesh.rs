@@ -5,11 +5,11 @@ use wgpu::{Buffer, BufferUsages, RenderPass};
 
 pub struct CpuMesh<V: Vertex> {
     vertices: Vec<V>,
-    indices: Vec<u16>,
+    indices: Vec<u32>,
 }
 
 impl<V: Vertex> CpuMesh<V> {
-    pub fn new(vertices: Vec<V>, indices: Vec<u16>) -> Self {
+    pub fn new(vertices: Vec<V>, indices: Vec<u32>) -> Self {
         Self { vertices, indices }
     }
 
