@@ -66,4 +66,8 @@ impl View {
             Vector3::unit_y(),
         )
     }
+
+    pub fn get_pos(&self) -> (f32, f32, f32) {
+        self.pos.into()
+    }
 }

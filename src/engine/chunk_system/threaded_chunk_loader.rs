@@ -53,7 +53,9 @@ impl ThreadedChunkLoader {
 
 impl ChunkLoader for ThreadedChunkLoader {
     fn queue_load_chunk(&mut self, pos: (i32, i32)) {
-        self.voxels_to_load.insert(pos);
+        if !self.voxels.contains_key(&pos) {
+            self.voxels_to_load.insert(pos);
+        }
     }
 
     fn queue_unload_chunk(&mut self, pos: (i32, i32)) {

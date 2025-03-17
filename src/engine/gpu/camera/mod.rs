@@ -74,6 +74,10 @@ impl Camera {
         self.view.move_camera(movement, dt);
     }
 
+    pub fn get_pos(&self) -> (f32, f32, f32) {
+        self.view.get_pos()
+    }
+
     pub fn resize(&mut self, width: u32, height: u32) {
         self.perspective.resize(width, height);
     }

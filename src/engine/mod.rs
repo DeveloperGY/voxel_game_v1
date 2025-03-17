@@ -76,18 +76,6 @@ impl Engine {
         self.prev_now = Instant::now();
         self.accumulated_dt += dt;
 
-        // Run fixed time step
-        let fixed_time_step = Duration::from_secs_f32(1.0 / 60.0);
-        while self.accumulated_dt >= fixed_time_step {
-            let movement = self.input_system.get_movement();
-            self.render_system.move_camera(movement, fixed_time_step);
-            self.accumulated_dt -= fixed_time_step;
-        }
-
-        // Run frame step
-        self.chunk_system.handle_chunk_jobs();
-        self.render_system.render(&self.chunk_system);
-
         // print fps
         let fps = 1.0 / dt.as_secs_f64();
         println!(
@@ -95,5 +83,22 @@ impl Engine {
             fps.trunc(),
             dt.as_millis()
         );
+
+        // Run fixed time step
+        let fixed_time_step = Duration::from_secs_f32(1.0 / 60.0);
+        while self.accumulated_dt >= fixed_time_step {
+            println!("Fixed Frame!");
+            let movement = self.input_system.get_movement();
+            self.render_system.move_camera(movement, fixed_time_step);
+
+            let (p_x, _, p_z) = self.render_system.get_camera_pos();
+            self.chunk_system.player_moved(p_x as i32, p_z as i32);
+
+            self.accumulated_dt -= fixed_time_step;
+        }
+
+        // Run frame step
+        self.chunk_system.handle_chunk_jobs();
+        self.render_system.render(&self.chunk_system);
     }
 }

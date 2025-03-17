@@ -169,6 +169,10 @@ impl RenderSystem {
         self.camera.move_camera(movement, dt);
     }
 
+    pub fn get_camera_pos(&self) -> (f32, f32, f32) {
+        self.camera.get_pos()
+    }
+
     pub fn render(&self, renderable: &impl Renderable) {
         self.camera.update_buffer(&self.gpu_ctx);
 

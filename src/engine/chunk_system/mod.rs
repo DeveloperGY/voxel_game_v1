@@ -1,7 +1,6 @@
 use crate::engine::chunk_system::chunk_vertex::ChunkVertex;
 use crate::engine::gpu::{GpuCtx, GpuMesh, Vertex};
 use crate::engine::render_system::Renderable;
-use std::rc::Rc;
 use std::sync::Arc;
 use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
@@ -42,6 +41,17 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 
         system.load_chunks();
         system
+    }
+
+    pub fn player_moved(&mut self, p_x: i32, p_z: i32) {
+        let new_c_x = p_x / 16;
+        let new_c_z = p_z / 16;
+        let new_chunk_loading_center = (new_c_x, new_c_z);
+
+        if new_chunk_loading_center != self.chunk_loading_center {
+            self.chunk_loading_center = new_chunk_loading_center;
+            self.load_chunks();
+        }
     }
 
     pub fn load_chunks(&mut self) {
