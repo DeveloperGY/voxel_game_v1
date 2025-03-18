@@ -7,6 +7,9 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZero;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use crate::engine::chunk_system::threaded_chunk_loader::texture_atlas::TextureAtlas;
+
+mod texture_atlas;
 
 pub struct ThreadedChunkLoader {
     thread_pool: Option<ThreadPool>,
@@ -15,6 +18,7 @@ pub struct ThreadedChunkLoader {
     mesh_priorities: HashMap<(i32, i32), u8>,
     voxels_to_load: HashSet<(i32, i32)>,
     meshes_to_load: HashSet<(i32, i32)>,
+    texture_atlas: Arc<TextureAtlas>,
 
     voxel_job_tx: Sender<VoxelData>,
     voxel_job_recv: Receiver<VoxelData>,
@@ -42,6 +46,7 @@ impl ThreadedChunkLoader {
             mesh_priorities: HashMap::new(),
             voxels_to_load: HashSet::new(),
             meshes_to_load: HashSet::new(),
+            texture_atlas: Arc::new(TextureAtlas::new()),
             voxel_job_tx,
             voxel_job_recv,
             mesh_job_tx,
@@ -130,9 +135,10 @@ impl ChunkLoader for ThreadedChunkLoader {
 
                 let rx = Sender::clone(&self.mesh_job_tx);
                 let gpu_ctx = Arc::clone(&self.gpu_ctx);
+                let atlas = Arc::clone(&self.texture_atlas);
 
                 pool.run(move || {
-                    let mesh = generate_mesh(input, gpu_ctx);
+                    let mesh = generate_mesh(input, atlas, gpu_ctx);
                     let _ = rx.send(mesh);
                 })
             }
@@ -202,6 +208,7 @@ fn generate_mesh(
         pos_z,
         neg_z,
     }: MeshGenInput,
+    atlas: Arc<TextureAtlas>,
     gpu_ctx: Arc<GpuCtx>,
 ) -> ((i32, i32), GpuMesh, u8) {
     let mut c_vertices = vec![];
@@ -297,43 +304,53 @@ fn generate_mesh(
                 let v_x = c_x * 16 + x;
                 let v_z = c_z * 16 + z;
 
+                let faces = atlas.get(BlockType::Solid).unwrap();
+                
+                let front = tex_index_to_coords(faces.front);
+                let back = tex_index_to_coords(faces.back);
+                let top = tex_index_to_coords(faces.top);
+                let bottom = tex_index_to_coords(faces.bottom);
+                let left = tex_index_to_coords(faces.left);
+                let right = tex_index_to_coords(faces.right);
+                
                 if gen_front {
-                    let v = gen_front_face(v_x, y, v_z);
+                    
+                    let v = gen_front_face(v_x, y, v_z, front);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_right {
-                    let v = gen_right_face(v_x, y, v_z);
+                    let v = gen_right_face(v_x, y, v_z, right);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_back {
-                    let v = gen_back_face(v_x, y, v_z);
+                    let v = gen_back_face(v_x, y, v_z, back);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_left {
-                    let v = gen_left_face(v_x, y, v_z);
+                    let v = gen_left_face(v_x, y, v_z, left);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_top {
-                    let v = gen_top_face(v_x, y, v_z);
+                    let v = gen_top_face(v_x, y, v_z, top);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
                 }
 
                 if gen_bottom {
-                    let v = gen_bottom_face(v_x, y, v_z);
+                    let v = gen_bottom_face(v_x, y, v_z, bottom);
                     let i = gen_face_indices(c_vertices.len() as u32);
                     c_vertices.extend_from_slice(&v);
                     c_indicies.extend_from_slice(&i);
@@ -367,7 +384,7 @@ fn gen_face_indices(starting_index: u32) -> [u32; 6] {
     ]
 }
 
-fn gen_front_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_front_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -376,23 +393,27 @@ fn gen_front_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x, y + 1.0, z + 1.0],
         normal: pos_z,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x, y, z + 1.0],
         normal: pos_z,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z + 1.0],
         normal: pos_z,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x + 1.0, y, z + 1.0],
         normal: pos_z,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
 }
 
-fn gen_right_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_right_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -401,23 +422,27 @@ fn gen_right_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z + 1.0],
         normal: pos_x,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x + 1.0, y, z + 1.0],
         normal: pos_x,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z],
         normal: pos_x,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x + 1.0, y, z],
         normal: pos_x,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
 }
 
-fn gen_back_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_back_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -426,23 +451,27 @@ fn gen_back_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z],
         normal: neg_z,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x + 1.0, y, z],
         normal: neg_z,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x, y + 1.0, z],
         normal: neg_z,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x, y, z],
         normal: neg_z,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
 }
 
-fn gen_left_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_left_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -451,23 +480,27 @@ fn gen_left_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x, y + 1.0, z],
         normal: neg_x,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x, y, z],
         normal: neg_x,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x, y + 1.0, z + 1.0],
         normal: neg_x,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x, y, z + 1.0],
         normal: neg_x,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
 }
 
-fn gen_top_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_top_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -476,23 +509,27 @@ fn gen_top_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x, y + 1.0, z],
         normal: pos_y,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x, y + 1.0, z + 1.0],
         normal: pos_y,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z],
         normal: pos_y,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x + 1.0, y + 1.0, z + 1.0],
         normal: pos_y,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
 }
 
-fn gen_bottom_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
+fn gen_bottom_face(x: i32, y: i32, z: i32, tex_coords: [[f32; 2]; 4]) -> [ChunkVertex; 4] {
     let x = x as f32;
     let y = y as f32;
     let z = z as f32;
@@ -501,18 +538,36 @@ fn gen_bottom_face(x: i32, y: i32, z: i32) -> [ChunkVertex; 4] {
     let tl = ChunkVertex {
         pos: [x, y, z + 1.0],
         normal: neg_y,
+        tex_coords: tex_coords[0]
     };
     let bl = ChunkVertex {
         pos: [x, y, z],
         normal: neg_y,
+        tex_coords: tex_coords[1]
     };
     let tr = ChunkVertex {
         pos: [x + 1.0, y, z + 1.0],
         normal: neg_y,
+        tex_coords: tex_coords[2]
     };
     let br = ChunkVertex {
         pos: [x + 1.0, y, z],
         normal: neg_y,
+        tex_coords: tex_coords[3]
     };
     [tl, bl, tr, br]
+}
+
+fn tex_index_to_coords(index: [u8; 2]) -> [[f32; 2]; 4] {
+    let scale = 16.0 / 512.0;
+
+    let x = index[0] as f32 * scale;
+    let y = index[1] as f32 * scale;
+    
+    [
+        [x, y],
+        [x, y + scale],
+        [x + scale, y],
+        [x + scale, y + scale]
+    ]
 }

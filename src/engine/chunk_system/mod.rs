@@ -3,15 +3,7 @@ use crate::engine::chunk_system::chunk_vertex::ChunkVertex;
 use crate::engine::gpu::{GpuCtx, GpuMesh, Vertex};
 use crate::engine::render_system::Renderable;
 use std::sync::Arc;
-use wgpu::{
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
-    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Face,
-    FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass,
-    RenderPipeline, RenderPipelineDescriptor, ShaderStages, StencilState, TextureFormat,
-    VertexState,
-};
-
+use wgpu::{AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, Face, FilterMode, FragmentState, FrontFace, IndexFormat, MultisampleState, Origin3d, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass, RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StencilState, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState};
 pub use chunk_loader::ChunkLoader;
 pub use threaded_chunk_loader::ThreadedChunkLoader;
 
@@ -20,17 +12,58 @@ mod chunk_vertex;
 mod threaded_chunk_loader;
 mod voxel_data;
 
+const TEXTURE_ATLAS_BYTES: &[u8] = include_bytes!("texture_atlas.png");
+
 pub struct ChunkSystem<L: ChunkLoader> {
     chunk_loading_center: (i32, i32),
     chunk_loading_radius: i32,
     loader: L,
 
     chunk_render_pipeline: RenderPipeline,
+    texture_atlas: Texture,
+    texture_atlas_view: TextureView,
+    texture_atlas_sampler: Sampler,
+    texture_atlas_bind_group: BindGroup
 }
 
 impl<L: ChunkLoader> ChunkSystem<L> {
     pub fn new(gpu_ctx: Arc<GpuCtx>, loader: L) -> Self {
         let chunk_render_pipeline = create_chunk_render_pipeline(&gpu_ctx);
+        let (texture_atlas, texture_atlas_view, texture_atlas_sampler) = create_texture_atlas(&gpu_ctx);
+        let texture_atlas_bind_group = gpu_ctx.device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &gpu_ctx.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: None,
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float {
+                                filterable: true
+                            },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false
+                        },
+                        count: None
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        count: None
+                    }
+                ]
+            }),
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(&texture_atlas_view),
+            }, BindGroupEntry {
+                binding: 1,
+                resource: BindingResource::Sampler(&texture_atlas_sampler),
+            }
+            ]
+        });
 
         let mut system = Self {
             chunk_loading_center: (0, 0),
@@ -38,6 +71,10 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 
             loader,
             chunk_render_pipeline,
+            texture_atlas,
+            texture_atlas_view,
+            texture_atlas_sampler,
+            texture_atlas_bind_group
         };
 
         system.load_chunks(system.get_chunks_to_load(system.chunk_loading_center));
@@ -92,6 +129,7 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 impl<L: ChunkLoader> Renderable for ChunkSystem<L> {
     fn render(&self, pass: &mut RenderPass) {
         pass.set_pipeline(&self.chunk_render_pipeline);
+        pass.set_bind_group(1, &self.texture_atlas_bind_group, &[]);
         for mesh in self.get_chunk_meshes() {
             let vertex = mesh.get_vertices();
             let index = mesh.get_indices();
@@ -121,11 +159,35 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
                 }],
             });
 
+    let texture_atlas_bind_group_layout = gpu_ctx.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[
+            BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Texture {
+                    sample_type: TextureSampleType::Float {
+                        filterable: true
+                    },
+                    view_dimension: TextureViewDimension::D2,
+                    multisampled: false
+                },
+                count: None
+            },
+            BindGroupLayoutEntry {
+                binding: 1,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                count: None
+            }
+        ]
+    });
+
     let layout = gpu_ctx
         .device
         .create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&camera_bind_group_layout],
+            bind_group_layouts: &[&camera_bind_group_layout, &texture_atlas_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -178,4 +240,51 @@ fn create_chunk_render_pipeline(gpu_ctx: &GpuCtx) -> RenderPipeline {
             multiview: None,
             cache: None,
         })
+}
+
+fn create_texture_atlas(gpu_ctx: &GpuCtx) -> (Texture, TextureView, Sampler) {
+    let size = Extent3d {
+        width: 512,
+        height: 512,
+        depth_or_array_layers: 1
+    };
+
+    let texture = gpu_ctx.device.create_texture(&TextureDescriptor {
+        label: None,
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Rgba8UnormSrgb,
+        usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+        view_formats: &[]
+    });
+
+    let diffuse_image = image::load_from_memory(TEXTURE_ATLAS_BYTES).unwrap();
+    let diffuse_rgba = diffuse_image.to_rgba8();
+
+    gpu_ctx.queue.write_texture(TexelCopyTextureInfo {
+        texture: &texture,
+        mip_level: 0,
+        origin: Origin3d::ZERO,
+        aspect: TextureAspect::All
+    }, &diffuse_rgba, TexelCopyBufferLayout {
+        offset: 0,
+        bytes_per_row: Some(4 * size.width),
+        rows_per_image: Some(size.height)
+    }, size);
+
+    let view = texture.create_view(&TextureViewDescriptor::default());
+    let sampler = gpu_ctx.device.create_sampler(&SamplerDescriptor {
+        label: None,
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        mipmap_filter: FilterMode::Nearest,
+        ..Default::default()
+    });
+
+    (texture, view, sampler)
 }

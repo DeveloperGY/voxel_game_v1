@@ -7,10 +7,11 @@ use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexStepMode};
 pub struct ChunkVertex {
     pub pos: [f32; 3],
     pub normal: [f32; 3],
+    pub tex_coords: [f32; 2]
 }
 
 impl ChunkVertex {
-    const ATTRIBS: [VertexAttribute; 2] = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+    const ATTRIBS: [VertexAttribute; 3] = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x2];
 }
 
 impl Vertex for ChunkVertex {
