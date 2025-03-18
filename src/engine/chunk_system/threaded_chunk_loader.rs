@@ -61,6 +61,7 @@ impl ChunkLoader for ThreadedChunkLoader {
     fn queue_unload_chunk(&mut self, pos: (i32, i32)) {
         self.voxels.remove(&pos);
         self.meshes.remove(&pos);
+        self.mesh_priorities.remove(&pos);
     }
 
     fn process_chunks(&mut self) {
@@ -141,7 +142,7 @@ impl ChunkLoader for ThreadedChunkLoader {
 
         // Receive mesh data
         while let Ok((pos, mesh, priority)) = self.mesh_job_recv.try_recv() {
-            if self.mesh_priorities.get(&pos).map(|prev| *prev <= priority).unwrap_or(true) {
+            if self.mesh_priorities.get(&pos).map(|prev| *prev <= priority).unwrap_or(true) && self.voxels.contains_key(&pos) {
                 self.mesh_priorities.insert(pos, priority);
                 self.meshes.insert(pos, mesh);
             }

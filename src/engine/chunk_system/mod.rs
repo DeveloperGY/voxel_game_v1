@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::engine::chunk_system::chunk_vertex::ChunkVertex;
 use crate::engine::gpu::{GpuCtx, GpuMesh, Vertex};
 use crate::engine::render_system::Renderable;
@@ -39,7 +40,7 @@ impl<L: ChunkLoader> ChunkSystem<L> {
             chunk_render_pipeline,
         };
 
-        system.load_chunks();
+        system.load_chunks(system.get_chunks_to_load(system.chunk_loading_center));
         system
     }
 
@@ -49,23 +50,26 @@ impl<L: ChunkLoader> ChunkSystem<L> {
         let new_chunk_loading_center = (new_c_x, new_c_z);
 
         if new_chunk_loading_center != self.chunk_loading_center {
+            let old_chunks = self.get_chunks_to_load(self.chunk_loading_center);
             self.chunk_loading_center = new_chunk_loading_center;
-            self.load_chunks();
+            let new_chunks = self.get_chunks_to_load(self.chunk_loading_center);
+            let chunks_to_remove = old_chunks.difference(&new_chunks).copied();
+            let chunks_to_load = new_chunks.difference(&old_chunks).copied();
+            self.unload_chunks(chunks_to_remove);
+            self.load_chunks(chunks_to_load);
         }
     }
 
-    pub fn load_chunks(&mut self) {
-        let center_x = self.chunk_loading_center.0;
-        let center_y = self.chunk_loading_center.1;
+    pub fn unload_chunks(&mut self, chunks_to_remove: impl IntoIterator<Item = (i32, i32)>) {
+        for pos in chunks_to_remove {
+            self.loader.queue_unload_chunk(pos);
+        }
+    }
 
-        (-self.chunk_loading_radius..self.chunk_loading_radius)
-            .flat_map(|y| {
-                (-self.chunk_loading_radius..self.chunk_loading_radius)
-                    .map(move |x| (x + center_x, y + center_y))
-            })
-            .for_each(|pos| {
-                self.loader.queue_load_chunk(pos);
-            });
+    pub fn load_chunks(&mut self, chunks_to_load: impl IntoIterator<Item = (i32, i32)>) {
+        for pos in chunks_to_load {
+            self.loader.queue_load_chunk(pos);
+        }
     }
 
     pub fn get_chunk_meshes(&self) -> Vec<&GpuMesh> {
@@ -74,6 +78,14 @@ impl<L: ChunkLoader> ChunkSystem<L> {
 
     pub fn handle_chunk_jobs(&mut self) {
         self.loader.process_chunks();
+    }
+
+    fn get_chunks_to_load(&self, (center_x, center_z): (i32, i32)) -> HashSet<(i32, i32)> {
+        (-self.chunk_loading_radius..self.chunk_loading_radius)
+            .flat_map(|y| {
+                (-self.chunk_loading_radius..self.chunk_loading_radius)
+                    .map(move |x| (x + center_x, y + center_z))
+            }).collect()
     }
 }
 

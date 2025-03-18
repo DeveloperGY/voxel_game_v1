@@ -92,7 +92,7 @@ impl Engine {
             self.render_system.move_camera(movement, fixed_time_step);
 
             let (p_x, _, p_z) = self.render_system.get_camera_pos();
-            self.chunk_system.player_moved(p_x as i32, p_z as i32);
+            self.chunk_system.player_moved(p_x.trunc() as i32, p_z.trunc() as i32);
 
             self.accumulated_dt -= fixed_time_step;
         }
